@@ -1,0 +1,73 @@
+"""Abstract base classes for row builders."""
+import tkinter as tk
+from abc import ABC, abstractmethod
+from typing import TypeVar, Generic, Optional
+
+T = TypeVar('T')
+
+
+class Row(ABC):
+    """Abstract base class for all row builders."""
+    id: str
+    kwargs: dict
+    _label: str = "Unlabelled object"  # all rowbuilders can take a label, up to children what to do with it
+
+    # defaults
+    _WIDTH: int = 30
+    _PADX: int = 10
+    _PADY: int = 2
+
+    @abstractmethod
+    def build(self, root: tk.Tk, row: int):
+        """Build the row widgets in the given root at the specified row number."""
+        pass
+
+    def _default_padding(self, **kwargs) -> dict:
+        """Get default padding values from kwargs or use class defaults."""
+        return {
+            "padx": kwargs.get("padx") or self._PADX,
+            "pady": kwargs.get("pady") or self._PADY
+        }
+
+    @property
+    def label(self) -> str:
+        """Get the label for this row."""
+        return self._label
+
+    @label.setter
+    def label(self, value: str):
+        """Set the label for this row."""
+        self._label = value
+
+
+class ValueRow(Row, ABC, Generic[T]):
+    """A rowbuilder with a value that can be get and set."""
+    _value: Optional[T]
+
+    @property
+    @abstractmethod
+    def value(self) -> T:
+        """Get the current value."""
+        pass
+
+    @value.setter
+    @abstractmethod
+    def value(self, val: T):
+        """Set the value."""
+        pass
+
+    @abstractmethod
+    def push_value(self):
+        """Push the current value to the UI widget."""
+        pass
+
+    @abstractmethod
+    def pull_value(self):
+        """Pull the value from the UI widget."""
+        pass
+
+    @property
+    @abstractmethod
+    def cast_value(self) -> T:
+        """Get the value cast to the appropriate type."""
+        pass

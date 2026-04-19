@@ -1,51 +1,62 @@
 import tkinter as tk
 from tkinter import messagebox
 import inspect
-from typing import Type, Callable, Optional, Any
-import regex
+from typing import Callable, Optional, Any
 from pathlib import Path
 
-from rowbuilders import Entry, Row, Text, ValueRow, IntEntry, FloatEntry, PathEntry, BoolEntry
+from method_signature import MethodSignature
+from rowbuilders import TextEntry, Text, ValueRow, IntEntry, FloatEntry, PathEntry, CheckBox
+from styles import apply_style, get_button_style, COLORS, FONTS, SPACING
 
 types_dict = {
-    inspect._empty: Entry,
-    str: Entry,
-    int: IntEntry, 
-    float: FloatEntry, 
-    Path: PathEntry, 
-    bool: BoolEntry
+    None: TextEntry,
+    str: TextEntry,
+    int: IntEntry,
+    float: FloatEntry,
+    Path: PathEntry,
+    bool: CheckBox
 }
 
 class ParameterState:
 
-    def __init__(self, value_type:Optional[Type], initial_value:Any, name:str, **kwargs):
+    def __init__(self, value_type:Optional[Any], initial_value:Any, name:str, has_default:bool=False):
         self.name = name
-        self.value_type=value_type
-        self.initial_value=initial_value
-        self.kwargs = kwargs
+        self.value_type = value_type
+        self.initial_value = initial_value
+        self.has_default = has_default
         self.rowbuilder:Optional[ValueRow] = None
 
         if self.value_type in types_dict:
             self.rowbuilder = types_dict[self.value_type]()
-        
+
     @classmethod
-    def from_parameter(cls, parameter:inspect.Parameter):
-        value = parameter.default
-        if value == inspect._empty:
-            value = None
-        value_type = parameter.annotation
-        if value_type == inspect._empty:
-            value_type = None
-        return cls(value_type, value, parameter.name)
+    def from_parameter_info(cls, parameter_info):
+        return cls(
+            value_type=parameter_info.annotation,
+            initial_value=parameter_info.default,
+            name=parameter_info.name,
+            has_default=parameter_info.has_default,
+        )
+
+    @staticmethod
+    def _annotation_label(value_type:Optional[Any]) -> str:
+        if value_type is None:
+            return "Any"
+        if isinstance(value_type, type):
+            return value_type.__name__
+        return str(value_type)
 
     @property
     def required(self) -> bool:
-        return self.value_type == inspect._empty
+        return not self.has_default
 
     def build(self, root, row):
         if self.rowbuilder:
             required_ast = "*" if self.required else ""
-            self.rowbuilder.label = f"{self.name.replace('_', ' ').capitalize()} ({self.value_type}){required_ast}"
+            annotation_label = self._annotation_label(self.value_type)
+            label_text = f"{self.name.replace('_', ' ').capitalize()} ({annotation_label}){required_ast}"
+            
+            self.rowbuilder.label = label_text
             
             if not self.required:
                 self.rowbuilder.value = self.initial_value
@@ -55,35 +66,40 @@ class ParameterState:
 
 class TKinterInput:
 
-    def __init__(self, method:Callable, root:Optional[tk.Tk]=None):
+    def __init__(self, method:Callable|list[Callable], root:Optional[tk.Tk]=None, keep_on_top:bool=False, test_mode:bool=False, style:str="light"):
         self.parameter_states:list[ParameterState] = []
-        self.method = method 
+        self.method = MethodSignature(method)
+        self.style = style
         if root:
             self.root = root
         else:
             self.root = tk.Tk()
 
+
+
         row = 0
 
-        for parameter in inspect.signature(self.method).parameters.values():
-            if parameter.kind == inspect._ParameterKind.POSITIONAL_OR_KEYWORD: #this ignores *args and **kwargs
-                if parameter_state := ParameterState.from_parameter(parameter):
-                    self.parameter_states.append(parameter_state)
+        for parameter_info in self.method.parameters:
+            if parameter_info.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                self.parameter_states.append(ParameterState.from_parameter_info(parameter_info))
 
-        formatted_title = self.method.__name__.replace('_', ' ').title()
-        self.root.title(formatted_title) 
+        self.root.title(self.method.formatted_title)
 
-        self.root.grid_columnconfigure(0, weight=0) 
-        self.root.grid_columnconfigure(1, weight=1) 
+        self.root.grid_columnconfigure(0, weight=0)
+        self.root.grid_columnconfigure(1, weight=1)
 
-        doc_string = self.method.__doc__
-        if doc_string and len(doc_string) > 0:
+        # Apply modern styling before building widgets so labels, entries, and buttons inherit theme defaults.
+        apply_style(self.root, style=self.style)
+
+        doc_string = self.method.docstring
+        if doc_string:
             Text(doc_string).build(self.root, row)
             row += 1
 
         for para in self.parameter_states:
             if para.rowbuilder:
                 para.rowbuilder.value = para.initial_value
+                # Pass parameter description from parsed docstring
                 para.build(self.root, row)
                 row += 1
 
@@ -92,13 +108,19 @@ class TKinterInput:
 
         submit_button = tk.Button(
             self.root,
-            text="Submit",
-            command=self.submit_action 
+            text=f"Run {self.method.formatted_title}",
+            command=self.submit_action,
+            **get_button_style(style)
         )
-        submit_button.grid(row=row, column=0, columnspan=2, pady=5)
+        submit_button.grid(row=row, column=0, columnspan=2, pady=SPACING["button_pady"], padx=SPACING["padding"], sticky="ew")
         row += 1
-        
-        self.root.mainloop()
+
+        if keep_on_top:
+            self.root.attributes('-topmost', True)
+            self.root.lift()
+
+        if not test_mode:
+            self.root.mainloop()
     
     def submit_action(self) -> None:
         final_args = {}
@@ -108,15 +130,15 @@ class TKinterInput:
                 #final_args[para.name] = TKinterInput.cast(para.row.value, para.type)
                 final_args[para.name] = para.rowbuilder.cast_value
 
-        print(f"Submitting data (with types) to {self.method.__name__}: {final_args}")
+        print(f"Submitting data (with types) to {self.method.method_name}: {final_args}")
         try:
-            self.method(**final_args)
+            self.method.method(**final_args)
         except TypeError as e:
             messagebox.showerror("Error", f"{e}")
 
 if __name__ == "__main__":
 
-    def test_method_123(id: int, rate: float, name, some_path:Path, is_active:bool = False, another_default:int = 123, another:str = "asdf", floaty:float=1.23, *args123, **kwargs):
+    def test_method_123(id: int, rate: float, name:str|None, some_path:Path, is_active:bool = False, another_default:int = 123, another:str = "asdf", floaty:float=1.23, *args123, **kwargs):
         """
         Docstring for test_method_123
         
