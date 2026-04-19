@@ -5,6 +5,7 @@ CustomStyle base class providing common styling elements for themes.
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple
 from . import Style
+import ctypes
 
 
 class CustomStyle(Style):
