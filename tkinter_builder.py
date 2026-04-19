@@ -66,24 +66,26 @@ class ParameterState:
 
 class TKinterInput:
 
-    def __init__(self, method:Callable|list[Callable], root:Optional[tk.Tk]=None, keep_on_top:bool=False, test_mode:bool=False, style:str="light"):
+    def __init__(self, methods:Callable|list[Callable], root:Optional[tk.Tk]=None, keep_on_top:bool=False, test_mode:bool=False, style:str="light"):
         self.parameter_states:list[ParameterState] = []
-        self.method = MethodSignature(method)
+        methods = methods if isinstance(methods, list) else [methods]
+        self.methods = [MethodSignature(method) for method in methods]
         self.style = style
+
         if root:
             self.root = root
         else:
             self.root = tk.Tk()
 
-
+        for method in self.methods:
+            for parameter_info in method.parameters:
+                if parameter_info.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    if parameter_info.name not in [parameter.name for parameter in self.parameter_states]:
+                        self.parameter_states.append(ParameterState.from_parameter_info(parameter_info))
 
         row = 0
 
-        for parameter_info in self.method.parameters:
-            if parameter_info.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                self.parameter_states.append(ParameterState.from_parameter_info(parameter_info))
-
-        self.root.title(self.method.formatted_title)
+        self.root.title(self.methods[0].formatted_title)
 
         self.root.grid_columnconfigure(0, weight=0)
         self.root.grid_columnconfigure(1, weight=1)
@@ -91,7 +93,7 @@ class TKinterInput:
         # Apply modern styling before building widgets so labels, entries, and buttons inherit theme defaults.
         apply_style(self.root, style=self.style)
 
-        doc_string = self.method.docstring
+        doc_string = self.methods[0].docstring
         if doc_string:
             Text(doc_string).build(self.root, row)
             row += 1
@@ -106,14 +108,14 @@ class TKinterInput:
         for i in range(row): 
              self.root.grid_rowconfigure(i, weight=1)
 
-        submit_button = tk.Button(
-            self.root,
-            text=f"Run {self.method.formatted_title}",
-            command=self.submit_action,
-            **get_button_style(style)
-        )
-        submit_button.grid(row=row, column=0, columnspan=2, pady=SPACING["button_pady"], padx=SPACING["padding"], sticky="ew")
-        row += 1
+        for method in self.methods:
+             tk.Button(
+                self.root,
+                text=f"Run {method.formatted_title}",
+                command=self._create_submit_action(method),
+                **get_button_style(self.style)
+             ).grid(row=row, column=0, columnspan=2, pady=SPACING["button_pady"], padx=SPACING["padding"], sticky="ew")
+             row += 1
 
         if keep_on_top:
             self.root.attributes('-topmost', True)
@@ -122,23 +124,25 @@ class TKinterInput:
         if not test_mode:
             self.root.mainloop()
     
-    def submit_action(self) -> None:
-        final_args = {}
-        for para in self.parameter_states:
-            if para.rowbuilder:
-                para.rowbuilder.pull_value()
-                #final_args[para.name] = TKinterInput.cast(para.row.value, para.type)
-                final_args[para.name] = para.rowbuilder.cast_value
+    def _create_submit_action(self, method: MethodSignature):
+        """Create a submit action closure for the given method."""
+        def submit_action():
+            final_args = {}
+            for para in self.parameter_states:
+                if para.rowbuilder:
+                    para.rowbuilder.pull_value()
+                    final_args[para.name] = para.rowbuilder.cast_value
 
-        print(f"Submitting data (with types) to {self.method.method_name}: {final_args}")
-        try:
-            self.method.method(**final_args)
-        except TypeError as e:
-            messagebox.showerror("Error", f"{e}")
+            try:
+                method.method(**final_args)
+            except TypeError as e:
+                messagebox.showerror("Error", f"{e}")
+        
+        return submit_action
 
 if __name__ == "__main__":
 
-    def test_method_123(id: int, rate: float, name:str|None, some_path:Path, is_active:bool = False, another_default:int = 123, another:str = "asdf", floaty:float=1.23, *args123, **kwargs):
+    def test_method_123(id: int, rate: float, name:str, some_path:Path, is_active:bool = False, another_default:int = 123, another:str = "asdf", floaty:float=1.23, *args123, **kwargs):
         """
         Docstring for test_method_123
         
@@ -154,4 +158,7 @@ if __name__ == "__main__":
         """
         print(f"ID Type: {id}, Rate Type: {rate}, Name Type: {name}, Active Type: {is_active}")
 
-    TKinterInput(test_method_123)
+    def test_method_456(name:str, age:int=30, **kwargs):
+        print(f"Name: {name}, Age: {age}")
+
+    TKinterInput([test_method_123, test_method_456])
