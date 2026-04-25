@@ -25,13 +25,12 @@ class Entry(ValueRow, ABC):
         return self._value
 
     @value.setter
-    def value(self, val: str):
-        self._value = str(val)
+    def value(self, val):
+        self._value = val
 
-    @abstractmethod
     def _get_validator(self) -> None | Callable:
         """Get validation function for this entry. Override in subclasses."""
-        pass
+        return None
 
     def push_value(self):
         """Push the current value to the entry widget."""
@@ -61,9 +60,7 @@ class Entry(ValueRow, ABC):
 
 class TextEntry(Entry):
     """A row with a text entry field for string values."""
-
-    def _get_validator(self) -> None | Callable:
-        return None
+    pass
 
 
 class FloatEntry(Entry):

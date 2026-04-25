@@ -10,7 +10,7 @@ from help_window import HelpWindow
 
 class TKinterInput:
 
-    def __init__(self, methods:Callable|list[Callable], root:Optional[tk.Tk]=None, keep_on_top:bool=False, test_mode:bool=False, style:str="light"):
+    def __init__(self, methods:Callable|list[Callable], root:Optional[tk.Tk]=None, keep_on_top:bool=False, style:str="light"):
         self.method_collection = MethodCollection(methods)
         self.style = style
 
@@ -28,10 +28,6 @@ class TKinterInput:
 
         # Apply modern styling before building widgets so labels, entries, and buttons inherit theme defaults.
         apply_style(self.root, style=self.style)
-
-        if doc_string := self.method_collection.docstring:
-            Text(doc_string).build(self.root, row)
-            row += 1
 
         for para in self.method_collection.parameter_states:
             if para.rowbuilder:
@@ -72,8 +68,7 @@ class TKinterInput:
         if keep_on_top:
             self.root.attributes('-topmost', True)
 
-        if not test_mode:
-            self.root.mainloop()
+        self.root.mainloop()
 
 if __name__ == "__main__":
 
@@ -93,7 +88,7 @@ if __name__ == "__main__":
         """
         print(f"ID: {id}, Rate: {rate}, Name: {name}, Path: {some_path}, Active: {is_active}, Another Default: {another_default}, Another: {another}, Floaty: {floaty}")    
 
-    def test_method_456(name:str|None, age:int=30):
-        print(f"Name: {name}, Age: {age}")
+    def test_method_456(name:str|None, age:int=30, optional_string:str|None=None):
+        print(f"Name: {name}, Age: {age}, Optional String: {optional_string}")
 
-    TKinterInput([test_method_123, test_method_456], style="light")
+    TKinterInput([test_method_123, test_method_456], style="dark")

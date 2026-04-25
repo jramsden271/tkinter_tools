@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from rowbuilders import TextEntry, IntEntry, FloatEntry, PathEntry, CheckBox, ValueRow
 from pathlib import Path
+from enum import Enum
 
 types_dict = {
     None: TextEntry,
@@ -8,8 +9,16 @@ types_dict = {
     int: IntEntry,
     float: FloatEntry,
     Path: PathEntry,
-    bool: CheckBox
+    bool: CheckBox,
 }
+
+class VALUE_CATEGORY(Enum):
+    UNSET = 0
+    NONE = 1
+    DEFAULT = 2
+    USER = 3
+
+
 
 class ParameterState:
 
@@ -59,3 +68,4 @@ class ParameterState:
                 self.rowbuilder.value = self.initial_value
 
             self.rowbuilder.build(root, row)
+

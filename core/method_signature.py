@@ -75,7 +75,7 @@ class MethodInfo:
     def get_help_text(self) -> str:
         """Return a user-facing help summary for this method."""
         lines = [
-            f"{self.formatted_title}",
+            f"{self.formatted_title}\n",
             "" if not self.docstring else self.docstring,
             "Parameters:",
         ]
