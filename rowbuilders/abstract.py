@@ -1,9 +1,14 @@
 """Abstract base classes for row builders."""
 import tkinter as tk
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional
+from types import NoneType
+from typing import TypeVar, Generic, Optional, Union
 
 T = TypeVar('T')
+
+def inc_optional(annotation):
+    """Include NoneType in the valid types if the annotation allows None."""
+    return [annotation, Union[annotation, None], annotation | None]
 
 
 class Row(ABC):
@@ -43,6 +48,7 @@ class Row(ABC):
 class ValueRow(Row, ABC, Generic[T]):
     """A rowbuilder with a value that can be get and set."""
     _value: Optional[T]
+    valid_types: tuple[type, ...] = ()  # to be defined in subclasses
 
     @property
     @abstractmethod

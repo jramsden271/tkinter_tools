@@ -8,6 +8,7 @@ class CheckBox(ValueRow):
     """A row with a checkbox widget."""
     checkbox_obj: Optional[tk.Checkbutton] = None
     _checkbox_var: Optional[tk.BooleanVar] = None
+    valid_types: tuple[type, ...] = (bool,)
 
     def __init__(self, id: str = "", **kwargs):
         self.id = id

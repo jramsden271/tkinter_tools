@@ -10,19 +10,20 @@ Classes are organized into:
 - Specialized widgets: CheckBox, BoolEntry
 """
 
+from typing import Union
+
 from .abstract import Row, ValueRow
 from .simple import Text
-from .entries import Entry, TextEntry, FloatEntry, IntEntry, PathEntry
+from rowbuilders.entries import Entry, TextEntry, FloatEntry, IntEntry, PathEntry
 from .widgets import CheckBox
+from pathlib import Path
 
-__all__ = [
-    'Row',
-    'ValueRow',
-    'Text',
-    'Entry',
-    'TextEntry',
-    'FloatEntry',
-    'IntEntry',
-    'PathEntry',
-    'CheckBox',
-]
+VALUE_ROWBUILDERS = [TextEntry, FloatEntry, IntEntry, PathEntry, CheckBox]
+
+def select_rowbuilder(annotation):
+    """Select the appropriate row builder class based on the annotation."""
+
+    rowbuilders = [r for r in VALUE_ROWBUILDERS if annotation in list(r.valid_types)]
+    if any(rowbuilders):
+        return rowbuilders[0]
+    
