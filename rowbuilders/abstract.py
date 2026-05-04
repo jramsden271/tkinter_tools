@@ -47,7 +47,8 @@ class Row(ABC):
 
 class ValueRow(Row, ABC, Generic[T]):
     """A rowbuilder with a value that can be get and set."""
-    _value: Optional[T]
+    _value: T
+    _is_value_set: bool = False
     valid_types: tuple[type, ...] = ()  # to be defined in subclasses
 
     @property

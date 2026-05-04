@@ -1,10 +1,38 @@
+from time import sleep
+import time
 import tkinter as tk
 from typing import Callable, Literal, Optional, Any
 from core.method_collection import MethodCollection
+from helpers.conjugator import Conjugator
+from helpers.task_queue import TaskQueue
 from rowbuilders import Text
 from pathlib import Path
 from styles import apply_style, get_button_style, COLORS, FONTS, SPACING
 from help_window import HelpWindow
+from helpers.queue_window import QueueWindow
+
+from tkinter import messagebox
+
+
+class Spinner:
+    def __init__(self, parent):
+        self.label = tk.Label(parent, text="", width=1)
+        self.chars = ['|', '/', '-', '\\']
+        self.index = 0
+        self.after_id = None
+
+    def start(self):
+        self._animate()
+
+    def _animate(self):
+        self.label.config(text=self.chars[self.index % len(self.chars)])
+        self.index += 1
+        self.after_id = self.label.after(100, self._animate)
+
+    def stop(self):
+        if self.after_id:
+            self.label.after_cancel(self.after_id)
+        self.label.config(text="")
 
 
 class TKinterInput:
@@ -45,38 +73,123 @@ class TKinterInput:
         for i in range(row):
             self.root.grid_rowconfigure(i, weight=1)
 
+        button_frame = tk.Frame(self.root, bg=self.root.cget("bg"))
+        button_frame.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=SPACING["button_pady"],
+            padx=SPACING["padding"],
+        )
+
+        row += 1
+
+        status_frame = tk.Frame(self.root, bg=self.root.cget("bg"))
+        status_frame.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=SPACING["padding"],
+            pady=(0, SPACING["button_pady"]),
+        )
+
+
+
+        def open_queue_window():
+            if _queue_window and _queue_window[0].window.winfo_exists():
+                _queue_window[0].window.lift()
+                return
+            win = QueueWindow(self.root, task_queue, self.style)
+            _queue_window.clear()
+            _queue_window.append(win)
+
+        queue_btn = tk.Button(
+            status_frame,
+            text="Queue",
+            command=open_queue_window,
+        )
+        queue_btn.pack(side="left", padx=(0, 5))
+
+        spinner = Spinner(status_frame)
+        spinner.label.pack(side="left", padx=(0, 5))
+
+        status_label = tk.Label(status_frame, text="", anchor="w")
+        status_label.pack(side="left", fill="x", expand=True)
+
+        _task_start: list[float | None] = [None]
+
+        def _tick_elapsed(label: str) -> None:
+            if _task_start[0] is None:
+                return
+            elapsed = int(time.monotonic() - _task_start[0])
+            status_label.config(text=f"Running: {label}... ({elapsed}s)")
+            status_label.after(1000, lambda: _tick_elapsed(label))
+
+        def on_task_start(name: str) -> None:
+            conjugated = Conjugator(name)
+            label = conjugated.to_present_continuous().capitalize()
+            def _():
+                _task_start[0] = time.monotonic()
+                spinner.start()
+                status_label.config(text=f"Running: {label}... (0s)")
+                status_label.after(1000, lambda: _tick_elapsed(label))
+            status_label.after(0, _)
+
+        def on_task_complete(name: str) -> None:
+            conjugated = Conjugator(name)
+            def _():
+                elapsed = round(time.monotonic() - _task_start[0],3) if _task_start[0] is not None else 0
+                _task_start[0] = None
+                spinner.stop()
+                status_label.config(text=f"Completed: {conjugated.to_past().capitalize()} ({elapsed}s)")
+            status_label.after(0, _)
+
+        def on_task_error(name: str, e: Exception) -> None:
+            def _():
+                elapsed = round(time.monotonic() - _task_start[0],3) if _task_start[0] is not None else 0
+                _task_start[0] = None
+                spinner.stop()
+                status_label.config(text=f"Error in {name} after {elapsed}s")
+                messagebox.showerror("Error", str(e))
+            status_label.after(0, _)
+
+        task_queue = TaskQueue(on_task_start, on_task_complete, on_task_error)
+
+        _queue_window: list[QueueWindow] = []
+
+
+
+        def update_queue_btn():
+            count = len(task_queue.get_pending())
+            queue_btn.config(text=f"Queue ({count})" if count else "Queue")
+            queue_btn.after(200, update_queue_btn)
+
+        update_queue_btn()
+
         for method in self.method_collection.methods:
-            row_frame = tk.Frame(self.root, bg=self.root.cget("bg"))
-            row_frame.grid(
-                row=row,
-                column=0,
-                columnspan=2,
-                sticky="ew",
-                pady=SPACING["button_pady"],
-                padx=SPACING["padding"],
-            )
-            row_frame.columnconfigure(0, weight=1)
 
-            tk.Button(
-                row_frame,
+            btn = tk.Button(
+                button_frame,
                 text=f"{method.formatted_title}",
-                command=self.method_collection.create_submit_action(method),
-                # **get_button_style(self.style)
-            ).grid(row=0, column=0, sticky="ew")
+                command=lambda a=self.method_collection.create_submit_action(method), n=method.formatted_title: task_queue.submit(a, n),
+            )
+            btn.pack(side="right", padx=(5, 0))
 
-            tk.Button(
-                row_frame,
-                text="Help",
+            menu = tk.Menu(button_frame, tearoff=0)
+            menu.add_command(
+                label="Help",
                 command=lambda m=method: HelpWindow(
                     self.root,
                     f"Help: {m.formatted_title}",
                     m.get_help_text(),
                     self.style,
                 ),
-                **get_button_style(self.style),
-            ).grid(row=0, column=1, padx=(5, 0))
+            )
+            btn.bind("<Button-3>", lambda e, m=menu: m.tk_popup(e.x_root, e.y_root))
 
-            row += 1
+        row += 1
 
         if keep_on_top:
             self.root.attributes("-topmost", True)
@@ -95,7 +208,7 @@ if __name__ == "__main__":
         another_default: int = 123,
         another: str = "asdf",
         floaty: float|None = 1.23,
-        moreee: Literal["option1", "option2"] = "option1",
+        #moreee: Literal["option1", "option2"] = "option1",
         *args123,
         **kwargs,
     ):
@@ -119,6 +232,10 @@ if __name__ == "__main__":
     def test_method_456(
         name: str | None, age: int = 30
     ):
-        print("did a thing")
+        sleep(10)  # Simulate a long-running task
+        raise Exception("This is a test exception for demonstration purposes.")
+    
+    def run_a_test_thing():
+        sleep(5)  # Simulate a long-running task
 
-    TKinterInput([test_method_123], style="dark")
+    TKinterInput([test_method_123, test_method_456, run_a_test_thing], style="dark")

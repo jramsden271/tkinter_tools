@@ -1,0 +1,54 @@
+import queue
+import threading
+import uuid
+from typing import Callable
+
+
+class TaskQueue:
+    def __init__(
+        self,
+        on_task_start: Callable[[str], None],
+        on_task_complete: Callable[[str], None],
+        on_task_error: Callable[[str, Exception], None],
+    ):
+        self._queue: queue.Queue = queue.Queue()
+        self._pending: list[tuple[str, str]] = []
+        self._cancelled: set[str] = set()
+        self._lock = threading.Lock()
+        self.on_task_start = on_task_start
+        self.on_task_complete = on_task_complete
+        self.on_task_error = on_task_error
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def submit(self, action: Callable, name: str) -> None:
+        task_id = str(uuid.uuid4())
+        with self._lock:
+            self._pending.append((task_id, name))
+        self._queue.put((task_id, action, name))
+
+    def cancel(self, task_id: str) -> None:
+        with self._lock:
+            self._cancelled.add(task_id)
+            self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
+
+    def get_pending(self) -> list[tuple[str, str]]:
+        with self._lock:
+            return list(self._pending)
+
+    def _worker(self) -> None:
+        while True:
+            task_id, action, name = self._queue.get()
+            with self._lock:
+                if task_id in self._cancelled:
+                    self._cancelled.discard(task_id)
+                    self._queue.task_done()
+                    continue
+                self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
+            self.on_task_start(name)
+            try:
+                action()
+                self.on_task_complete(name)
+            except Exception as e:
+                self.on_task_error(name, e)
+            finally:
+                self._queue.task_done()
