@@ -66,14 +66,14 @@ class ParameterState():
             return annotation.__name__
         return str(annotation)
 
-    def build(self, root: tk.Tk, row: int, param_description: Optional[str] = None):
+    def get_label_text(self, param_description: Optional[str] = None) -> str:
+        annotation_label = self._annotation_label(self.annotation)
+        label_text = f"{self.name.replace('_', ' ').capitalize()} ({annotation_label})"
+        if param_description:
+            label_text = f"{label_text}\n{param_description}"
+        return label_text
+
+    def build(self, root: tk.Tk, param_description: Optional[str] = None, label_width: Optional[int] = None) -> Optional[tk.Frame]:
         if self.rowbuilder:
-            annotation_label = self._annotation_label(self.annotation)
-            label_text = f"{self.name.replace('_', ' ').capitalize()} ({annotation_label})"
-
-            if param_description:
-                label_text = f"{label_text}\n{param_description}"
-
-            self.rowbuilder.label = label_text
-
-            self.rowbuilder.build(root, row)
+            self.rowbuilder.label = self.get_label_text(param_description)
+            return self.rowbuilder.build(root, label_width=label_width)

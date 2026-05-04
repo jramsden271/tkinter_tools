@@ -67,13 +67,15 @@ class Entry(ValueRow, ABC):
             else:
                 self.value = self.entry_obj.get()
 
-    def build(self, root: tk.Tk, row: int, additional_widgets: List[Callable[[tk.Frame], tk.Widget]] = [], **kwargs):
-        self.label_obj = tk.Label(root, text=self.label)
-        self.label_obj.grid(row=row, column=0, sticky="W", **self._default_padding(**self.kwargs))
+    def build(self, root: tk.Tk, label_width: Optional[int] = None, additional_widgets: List[Callable[[tk.Frame], tk.Widget]] = [], **kwargs) -> tk.Frame:
+        row_frame = tk.Frame(root)
 
-        # Create a frame to hold entry and button side by side
-        frame = tk.Frame(root)
-        frame.grid(row=row, column=1, sticky="EW", **self._default_padding(**self.kwargs))
+        label_opts = {"width": label_width, "anchor": "w"} if label_width else {}
+        self.label_obj = tk.Label(row_frame, text=self.label, **label_opts)
+        self.label_obj.pack(side=tk.LEFT, **self._default_padding(**self.kwargs))
+
+        frame = tk.Frame(row_frame)
+        frame.pack(side=tk.LEFT, fill=tk.X, expand=True, **self._default_padding(**self.kwargs))
 
         self._entry_var = tk.StringVar()
         self.entry_obj = tk_extension.Entry(frame, textvariable=self._entry_var, width=self.kwargs.get("width") or self._WIDTH)
@@ -95,13 +97,14 @@ class Entry(ValueRow, ABC):
 
         for widget_factory in additional_widgets:
             widget_factory(frame).pack(side=tk.RIGHT, padx=(5, 0))
-               
 
         if validator := self._get_validator():
             self.entry_obj.config(
                 validate="key",
                 validatecommand=(root.register(validator), '%P')
             )
+
+        return row_frame
 
 
 class TextEntry(Entry):
@@ -165,8 +168,8 @@ class PathEntry(Entry):
                 self.entry_obj.delete(0, tk.END)
                 self.entry_obj.insert(0, path)
 
-    def build(self, root: tk.Tk, row: int, additional_widgets: List[Callable[[tk.Frame], tk.Widget]] = [], **kwargs):
-        super().build(root, row, additional_widgets=[
+    def build(self, root: tk.Tk, label_width: Optional[int] = None, additional_widgets: List[Callable[[tk.Frame], tk.Widget]] = [], **kwargs) -> tk.Frame:
+        return super().build(root, label_width=label_width, additional_widgets=[
             lambda frame: tk.Button(frame, text="Browse...", command=self._on_browse_click),
             *additional_widgets,
         ], **kwargs)

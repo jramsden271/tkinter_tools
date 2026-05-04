@@ -1,5 +1,6 @@
 """Simple row builders for displaying static content."""
 import tkinter as tk
+from typing import Optional
 from .abstract import Row
 
 
@@ -11,7 +12,9 @@ class Text(Row):
         self.id = id
         self.kwargs = kwargs
 
-    def build(self, root: tk.Tk, row: int, **kwargs):
+    def build(self, root: tk.Tk, label_width: Optional[int] = None, **kwargs) -> tk.Frame:
         self.kwargs = {**self.kwargs, **kwargs}
-        self.label_obj = tk.Label(root, text=self.label)
-        self.label_obj.grid(row=row, column=0, sticky="", columnspan=2, **self._default_padding(**self.kwargs))
+        row_frame = tk.Frame(root)
+        self.label_obj = tk.Label(row_frame, text=self.label)
+        self.label_obj.pack(fill=tk.X, **self._default_padding(**self.kwargs))
+        return row_frame

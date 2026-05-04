@@ -37,11 +37,15 @@ class CheckBox(ValueRow):
         if self._checkbox_var:
             self.value = self._checkbox_var.get()
 
-    def build(self, root: tk.Tk, row: int):
-        self.label_obj = tk.Label(root, text=self.label)
-        self.label_obj.grid(row=row, column=0, sticky="W", **self._default_padding(**self.kwargs))
+    def build(self, root: tk.Tk, label_width: Optional[int] = None, **kwargs) -> tk.Frame:
+        row_frame = tk.Frame(root)
+
+        label_opts = {"width": label_width, "anchor": "w"} if label_width else {}
+        self.label_obj = tk.Label(row_frame, text=self.label, **label_opts)
+        self.label_obj.pack(side=tk.LEFT, **self._default_padding(**self.kwargs))
 
         self._checkbox_var = tk.BooleanVar(value=self.value)
-        self.checkbox_obj = tk.Checkbutton(root, variable=self._checkbox_var)
-        self.checkbox_obj.grid(row=row, column=1, sticky="W", **self._default_padding(**self.kwargs))
+        self.checkbox_obj = tk.Checkbutton(row_frame, variable=self._checkbox_var)
+        self.checkbox_obj.pack(side=tk.LEFT, **self._default_padding(**self.kwargs))
         self.push_value()
+        return row_frame

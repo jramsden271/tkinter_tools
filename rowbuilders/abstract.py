@@ -23,8 +23,8 @@ class Row(ABC):
     _PADY: int = 2
 
     @abstractmethod
-    def build(self, root: tk.Tk, row: int):
-        """Build the row widgets in the given root at the specified row number."""
+    def build(self, root: tk.Tk, label_width: Optional[int] = None, **kwargs) -> tk.Frame:
+        """Build the row widgets into a frame and return it."""
         pass
 
     def _default_padding(self, **kwargs) -> dict:

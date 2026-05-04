@@ -52,45 +52,37 @@ class TKinterInput:
         else:
             self.root = tk.Tk()
 
-        row = 0
-
         self.root.title(self.method_collection.title)
-
-        self.root.grid_columnconfigure(0, weight=0)
-        self.root.grid_columnconfigure(1, weight=1)
 
         # Apply modern styling before building widgets so labels, entries, and buttons inherit theme defaults.
         apply_style(self.root, style=self.style)
+
+        max_label_width = 0
+        for para in self.method_collection.parameter_states:
+            if para.rowbuilder:
+                desc = self.method_collection.get_parameter_description(para.name)
+                text = para.get_label_text(desc)
+                max_label_width = max(max_label_width, max(int(len(line)*0.8) for line in text.split('\n')))
 
         for para in self.method_collection.parameter_states:
             if para.rowbuilder:
                 description = self.method_collection.get_parameter_description(
                     para.name
                 )
-                para.build(self.root, row, param_description=description)
-                row += 1
-
-        for i in range(row):
-            self.root.grid_rowconfigure(i, weight=1)
+                frame = para.build(self.root, param_description=description, label_width=max_label_width)
+                if frame:
+                    frame.pack(fill=tk.X, padx=SPACING["padding"])
 
         button_frame = tk.Frame(self.root, bg=self.root.cget("bg"))
-        button_frame.grid(
-            row=row,
-            column=0,
-            columnspan=2,
-            sticky="ew",
+        button_frame.pack(
+            fill=tk.X,
             pady=SPACING["button_pady"],
             padx=SPACING["padding"],
         )
 
-        row += 1
-
         status_frame = tk.Frame(self.root, bg=self.root.cget("bg"))
-        status_frame.grid(
-            row=row,
-            column=0,
-            columnspan=2,
-            sticky="ew",
+        status_frame.pack(
+            fill=tk.X,
             padx=SPACING["padding"],
             pady=(0, SPACING["button_pady"]),
         )
@@ -188,8 +180,6 @@ class TKinterInput:
                 ),
             )
             btn.bind("<Button-3>", lambda e, m=menu: m.tk_popup(e.x_root, e.y_root))
-
-        row += 1
 
         if keep_on_top:
             self.root.attributes("-topmost", True)
