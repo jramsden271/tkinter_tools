@@ -2,7 +2,7 @@ import queue
 import threading
 import time
 import uuid
-from typing import Callable
+from typing import Callable, Optional
 
 
 class TaskQueue:
@@ -14,6 +14,7 @@ class TaskQueue:
     ):
         self._queue: queue.Queue = queue.Queue()
         self._pending: list[tuple[str, str]] = []
+        self._current: Optional[tuple[str, str, float]] = None
         self._cancelled: set[str] = set()
         self._lock = threading.Lock()
         self.on_task_start = on_task_start
@@ -36,6 +37,11 @@ class TaskQueue:
         with self._lock:
             return list(self._pending)
 
+    def get_current(self) -> Optional[tuple[str, str, float]]:
+        """Return (task_id, name, start_time) for the task currently executing, if any."""
+        with self._lock:
+            return self._current
+
     def _worker(self) -> None:
         while True:
             task_id, action, name = self._queue.get()
@@ -45,6 +51,7 @@ class TaskQueue:
                     self._queue.task_done()
                     continue
                 self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
+                self._current = (task_id, name, time.monotonic())
             self.on_task_start(name)
             try:
                 action()
@@ -52,6 +59,8 @@ class TaskQueue:
             except Exception as e:
                 self.on_task_error(name, e)
             finally:
+                with self._lock:
+                    self._current = None
                 self._queue.task_done()
 
 
