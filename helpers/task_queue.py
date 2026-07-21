@@ -33,6 +33,12 @@ class TaskQueue:
             self._cancelled.add(task_id)
             self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
 
+    def cancel_all(self) -> None:
+        """Cancel every task currently pending in the queue (not the one already running)."""
+        with self._lock:
+            self._cancelled.update(tid for tid, _ in self._pending)
+            self._pending = []
+
     def get_pending(self) -> list[tuple[str, str]]:
         with self._lock:
             return list(self._pending)

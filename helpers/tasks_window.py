@@ -24,13 +24,23 @@ class TasksWindow:
 
         bg = self.window.cget("bg")
 
+        header_frame = tk.Frame(self.window, bg=bg)
+        header_frame.pack(fill="x", padx=SPACING["padding"], pady=(SPACING["padding"], 4))
+
         header = tk.Label(
-            self.window,
+            header_frame,
             text="Queued / Running",
             font=("Segoe UI", 14, "bold"),
             anchor="w",
         )
-        header.pack(fill="x", padx=SPACING["padding"], pady=(SPACING["padding"], 4))
+        header.pack(side="left", fill="x", expand=True)
+
+        tk.Button(
+            header_frame,
+            text="Cancel All",
+            command=self._task_queue.cancel_all,
+            **get_button_style(self._style),
+        ).pack(side="right")
 
         self._list_frame = tk.Frame(self.window, bg=bg)
         self._list_frame.pack(fill="both", expand=True, padx=SPACING["padding"], pady=(0, SPACING["padding"]))
