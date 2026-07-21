@@ -83,9 +83,11 @@ class MethodCollection:
         return final_args
 
     def create_submit_action(self, method: MethodInfo) -> Callable[[], Any]:
-        """Create a callable that invokes the specified method with collected form values."""
+        """Capture the current form values now and return a callable that invokes the
+        method with that snapshot, so later widget edits don't affect a queued call."""
+        final_args = self.collect_final_args(method)
+
         def submit_action():
-            final_args = self.collect_final_args(method)
             return method.method(**final_args)
 
         return submit_action

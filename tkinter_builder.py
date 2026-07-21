@@ -167,7 +167,7 @@ class TKinterInput:
             btn = tk.Button(
                 button_frame,
                 text=f"{method.formatted_title} (F{i + 1})",
-                command=lambda a=self.method_collection.create_submit_action(method), n=method.formatted_title: task_queue.submit(a, n),
+                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
             )
             btn.pack(side="right", padx=(5, 0))
 
@@ -186,7 +186,7 @@ class TKinterInput:
         for i, method in enumerate(self.method_collection.methods):
             self.root.bind(
                 f"<F{i + 1}>",
-                lambda _, a=self.method_collection.create_submit_action(method), n=method.formatted_title: task_queue.submit(a, n),
+                lambda _, m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
             )
 
         if keep_on_top:
