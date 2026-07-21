@@ -1,5 +1,4 @@
 import inspect
-import re
 from typing import Any, Callable, Dict, List, Optional
 
 from .method_info import MethodInfo
@@ -43,23 +42,13 @@ class MethodCollection:
     def docstring(self) -> Optional[str]:
         return self.methods[0].docstring if self.methods else None
 
-    @staticmethod
-    def _parse_parameter_descriptions(docstring: Optional[str]) -> Dict[str, str]:
-        """Parse Sphinx-style :param name: descriptions from a docstring."""
-        if not docstring:
-            return {}
-
-        pattern = r':param\s+(\w+):\s*(.+?)(?=\n\s*:|\n\n|$)'
-        matches = re.findall(pattern, docstring, re.DOTALL)
-        return {name: desc.strip() for name, desc in matches}
-
     @property
     def parameter_descriptions(self) -> Dict[str, str]:
         """Collect parameter descriptions from the first method's docstring."""
         if not self.methods:
             return {}
 
-        return self._parse_parameter_descriptions(self.methods[0].docstring)
+        return self.methods[0].parameter_descriptions
 
     def get_parameter_description(self, param_name: str) -> Optional[str]:
         """Get the description for a specific shared parameter."""
@@ -83,9 +72,11 @@ class MethodCollection:
         return final_args
 
     def create_submit_action(self, method: MethodInfo) -> Callable[[], Any]:
-        """Create a callable that invokes the specified method with collected form values."""
+        """Capture the current form values now and return a callable that invokes the
+        method with that snapshot, so later widget edits don't affect a queued call."""
+        final_args = self.collect_final_args(method)
+
         def submit_action():
-            final_args = self.collect_final_args(method)
             return method.method(**final_args)
 
         return submit_action

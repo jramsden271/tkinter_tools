@@ -1,7 +1,8 @@
 import queue
 import threading
+import time
 import uuid
-from typing import Callable
+from typing import Callable, Optional
 
 
 class TaskQueue:
@@ -13,6 +14,7 @@ class TaskQueue:
     ):
         self._queue: queue.Queue = queue.Queue()
         self._pending: list[tuple[str, str]] = []
+        self._current: Optional[tuple[str, str, float]] = None
         self._cancelled: set[str] = set()
         self._lock = threading.Lock()
         self.on_task_start = on_task_start
@@ -31,9 +33,20 @@ class TaskQueue:
             self._cancelled.add(task_id)
             self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
 
+    def cancel_all(self) -> None:
+        """Cancel every task currently pending in the queue (not the one already running)."""
+        with self._lock:
+            self._cancelled.update(tid for tid, _ in self._pending)
+            self._pending = []
+
     def get_pending(self) -> list[tuple[str, str]]:
         with self._lock:
             return list(self._pending)
+
+    def get_current(self) -> Optional[tuple[str, str, float]]:
+        """Return (task_id, name, start_time) for the task currently executing, if any."""
+        with self._lock:
+            return self._current
 
     def _worker(self) -> None:
         while True:
@@ -44,6 +57,7 @@ class TaskQueue:
                     self._queue.task_done()
                     continue
                 self._pending = [(tid, n) for tid, n in self._pending if tid != task_id]
+                self._current = (task_id, name, time.monotonic())
             self.on_task_start(name)
             try:
                 action()
@@ -51,4 +65,29 @@ class TaskQueue:
             except Exception as e:
                 self.on_task_error(name, e)
             finally:
+                with self._lock:
+                    self._current = None
                 self._queue.task_done()
+
+
+class AsyncTaskTracker:
+    """Track tasks that are running concurrently, outside of any queue."""
+
+    def __init__(self):
+        self._running: dict[str, tuple[str, float]] = {}
+        self._lock = threading.Lock()
+
+    def start(self, name: str) -> str:
+        task_id = str(uuid.uuid4())
+        with self._lock:
+            self._running[task_id] = (name, time.monotonic())
+        return task_id
+
+    def finish(self, task_id: str) -> None:
+        with self._lock:
+            self._running.pop(task_id, None)
+
+    def get_running(self) -> list[tuple[str, str, float]]:
+        """Return (task_id, name, start_time) for each task currently running."""
+        with self._lock:
+            return [(tid, name, start) for tid, (name, start) in self._running.items()]
