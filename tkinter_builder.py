@@ -5,7 +5,7 @@ import tkinter as tk
 from typing import Callable, Literal, Optional, Any
 from core.method_collection import MethodCollection
 from helpers.conjugator import Conjugator
-from helpers.task_queue import TaskQueue
+from helpers.task_queue import TaskQueue, AsyncTaskTracker
 from rowbuilders import Text
 from pathlib import Path
 from styles import apply_style, get_button_style, COLORS, FONTS, SPACING
@@ -94,7 +94,7 @@ class TKinterInput:
             if _queue_window and _queue_window[0].window.winfo_exists():
                 _queue_window[0].window.lift()
                 return
-            win = QueueWindow(self.root, task_queue, self.style)
+            win = QueueWindow(self.root, task_queue, async_tracker, self.style)
             _queue_window.clear()
             _queue_window.append(win)
 
@@ -149,16 +149,20 @@ class TKinterInput:
             status_label.after(0, _)
 
         task_queue = TaskQueue(on_task_start, on_task_complete, on_task_error)
+        async_tracker = AsyncTaskTracker()
 
         def run_async(method) -> None:
             """Run a method in its own thread immediately, bypassing the queue."""
             action = self.method_collection.create_submit_action(method)
+            task_id = async_tracker.start(method.formatted_title)
 
             def _worker():
                 try:
                     action()
                 except Exception as e:
                     self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+                finally:
+                    async_tracker.finish(task_id)
 
             threading.Thread(target=_worker, daemon=True).start()
 

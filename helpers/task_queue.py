@@ -1,5 +1,6 @@
 import queue
 import threading
+import time
 import uuid
 from typing import Callable
 
@@ -52,3 +53,26 @@ class TaskQueue:
                 self.on_task_error(name, e)
             finally:
                 self._queue.task_done()
+
+
+class AsyncTaskTracker:
+    """Track tasks that are running concurrently, outside of any queue."""
+
+    def __init__(self):
+        self._running: dict[str, tuple[str, float]] = {}
+        self._lock = threading.Lock()
+
+    def start(self, name: str) -> str:
+        task_id = str(uuid.uuid4())
+        with self._lock:
+            self._running[task_id] = (name, time.monotonic())
+        return task_id
+
+    def finish(self, task_id: str) -> None:
+        with self._lock:
+            self._running.pop(task_id, None)
+
+    def get_running(self) -> list[tuple[str, str, float]]:
+        """Return (task_id, name, start_time) for each task currently running."""
+        with self._lock:
+            return [(tid, name, start) for tid, (name, start) in self._running.items()]
