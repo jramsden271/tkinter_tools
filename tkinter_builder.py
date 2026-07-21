@@ -173,18 +173,20 @@ class TKinterInput:
 
         update_queue_btn()
 
-        #for method in [methods_[i] for i in range(len(methods_)-1, -1, -1)]:
+        buttons_frame = tk.Frame(button_frame, bg=self.root.cget("bg"))
+        buttons_frame.pack(side="right")
+
         for i in range(len(self.method_collection.methods)):
             method = self.method_collection.methods[i]
 
             btn = tk.Button(
-                button_frame,
+                buttons_frame,
                 text=f"{method.formatted_title} (F{i + 1})",
                 command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
             )
-            btn.pack(side="right", padx=(5, 0))
+            btn.pack(side="left", padx=(5, 0))
 
-            menu = tk.Menu(button_frame, tearoff=0)
+            menu = tk.Menu(buttons_frame, tearoff=0)
             menu.add_command(
                 label="Run",
                 command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
