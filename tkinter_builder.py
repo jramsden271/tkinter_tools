@@ -23,6 +23,8 @@ class Spinner:
         self.after_id = None
 
     def start(self):
+        if self.after_id is not None:
+            return
         self._animate()
 
     def _animate(self):
@@ -33,6 +35,7 @@ class Spinner:
     def stop(self):
         if self.after_id:
             self.label.after_cancel(self.after_id)
+            self.after_id = None
         self.label.config(text="")
 
 
