@@ -1,10 +1,24 @@
 import inspect
-from typing import Any, Callable, List, Optional, Union
+import re
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Union
 from core.parameter_info import ParameterInfo
+
+
+@dataclass(frozen=True)
+class HelpRow:
+    """A single parameter's data for display in a help table."""
+    name: str
+    type_text: str
+    default_text: str
+    description: str
 
 
 class MethodInfo:
     """Analyze a method or function signature for parameter metadata."""
+
+    _PARAM_DESCRIPTION_PATTERN = r':param\s+(\w+):\s*(.+?)(?=\n\s*:|\n\n|$)'
+    _FIELD_LINE_PATTERN = r'^\s*:\w+.*$'
 
     def __init__(self, method: Callable):
         self.method = method
@@ -38,6 +52,49 @@ class MethodInfo:
     def formatted_title(self) -> str:
         """Return method name formatted as a readable title (underscores replaced with spaces, title-cased)."""
         return self.method_name.replace("_", " ").title()
+
+    @property
+    def summary(self) -> str:
+        """Return the free-text summary from the docstring, excluding :param:/:type:/etc. field lines."""
+        if not self.docstring:
+            return ""
+
+        first_field_match = re.search(self._FIELD_LINE_PATTERN, self.docstring, re.MULTILINE)
+        summary_text = self.docstring[:first_field_match.start()] if first_field_match else self.docstring
+        return summary_text.strip()
+
+    @property
+    def parameter_descriptions(self) -> Dict[str, str]:
+        """Parse Sphinx-style :param name: descriptions from this method's docstring."""
+        if not self.docstring:
+            return {}
+
+        matches = re.findall(self._PARAM_DESCRIPTION_PATTERN, self.docstring, re.DOTALL)
+        return {name: desc.strip() for name, desc in matches}
+
+    def help_rows(self) -> List[HelpRow]:
+        """Return one HelpRow per parameter, for display in a help table."""
+        descriptions = self.parameter_descriptions
+        return [
+            HelpRow(
+                name=parameter.name,
+                type_text=parameter.type_text,
+                default_text=parameter.default_text,
+                description=descriptions.get(parameter.name, ""),
+            )
+            for parameter in self.parameters
+        ]
+
+    def help_notes(self) -> List[str]:
+        """Return supplementary help notes not tied to a specific parameter row."""
+        notes = []
+        if self.accepts_varargs:
+            notes.append("This method accepts additional positional arguments.")
+        if self.accepts_kwargs:
+            notes.append("This method accepts additional keyword arguments.")
+        if self.return_annotation is not None:
+            notes.append(f"Returns: {self.return_annotation}")
+        return notes
 
     def get_help_text(self) -> str:
         """Return a user-facing help summary for this method."""

@@ -79,3 +79,25 @@ class ParameterInfo():
         elif self.is_var_keyword:
             kind_text = " (kwargs)"
         return f"{self.name}: {annotation_text}{default_text}{kind_text}"
+
+    @staticmethod
+    def _annotation_text(annotation: Any) -> str:
+        return annotation.__name__ if isinstance(annotation, type) else str(annotation)
+
+    @property
+    def type_text(self) -> str:
+        """Return a display string for the parameter's annotation."""
+        if self.is_var_positional:
+            return f"*{self._annotation_text(self.annotation)}" if self.annotation is not None else "*args"
+        if self.is_var_keyword:
+            return f"**{self._annotation_text(self.annotation)}" if self.annotation is not None else "**kwargs"
+        return self._annotation_text(self.annotation) if self.annotation is not None else "Any"
+
+    @property
+    def default_text(self) -> str:
+        """Return a display string for the parameter's requiredness/default."""
+        if self.is_var_positional or self.is_var_keyword:
+            return ""
+        if self.has_default:
+            return f"Default: {self.default!r}"
+        return "Required"

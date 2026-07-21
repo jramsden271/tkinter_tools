@@ -204,8 +204,10 @@ class TKinterInput:
                 command=lambda m=method: HelpWindow(
                     self.root,
                     f"Help: {m.formatted_title}",
-                    m.get_help_text(),
+                    m.help_rows(),
                     self.style,
+                    summary=m.summary,
+                    notes=m.help_notes(),
                 ),
             )
             btn.bind("<Button-3>", lambda e, m=menu: m.tk_popup(e.x_root, e.y_root))
