@@ -1,4 +1,5 @@
 from time import sleep
+import threading
 import time
 import tkinter as tk
 from typing import Callable, Literal, Optional, Any
@@ -149,6 +150,18 @@ class TKinterInput:
 
         task_queue = TaskQueue(on_task_start, on_task_complete, on_task_error)
 
+        def run_async(method) -> None:
+            """Run a method in its own thread immediately, bypassing the queue."""
+            action = self.method_collection.create_submit_action(method)
+
+            def _worker():
+                try:
+                    action()
+                except Exception as e:
+                    self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+
+            threading.Thread(target=_worker, daemon=True).start()
+
         _queue_window: list[QueueWindow] = []
 
 
@@ -172,6 +185,15 @@ class TKinterInput:
             btn.pack(side="right", padx=(5, 0))
 
             menu = tk.Menu(button_frame, tearoff=0)
+            menu.add_command(
+                label="Run",
+                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+            )
+            menu.add_command(
+                label="Run Asynchronously",
+                command=lambda m=method: run_async(m),
+            )
+            menu.add_separator()
             menu.add_command(
                 label="Help",
                 command=lambda m=method: HelpWindow(
