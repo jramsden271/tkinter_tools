@@ -138,7 +138,7 @@ class TKinterInput:
                 try:
                     action()
                 except Exception as e:
-                    self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+                    self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
                 finally:
                     async_tracker.finish(task_id)
 
