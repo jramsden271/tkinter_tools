@@ -37,7 +37,7 @@ class TasksWindow:
 
         tk.Button(
             header_frame,
-            text="Cancel All",
+            text="Clear Queue",
             command=self._task_queue.cancel_all,
             **get_button_style(self._style),
         ).pack(side="right")
