@@ -66,7 +66,7 @@ class Entry(ValueRow, ABC):
     def _on_drop(self, event):
         data = self._parse_drop_data(event.data)
         validator = self._get_validator()
-        if validator is None or validator(data):
+        if self.entry_obj is not None and (validator is None or validator(data)):
             self.entry_obj.delete(0, tk.END)
             self.entry_obj.insert(0, data)
         return event.action
