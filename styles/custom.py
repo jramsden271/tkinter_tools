@@ -104,6 +104,7 @@ class CustomStyle(Style):
         root.option_add("*Checkbutton.foreground", colors["text_primary"])
         root.option_add("*Checkbutton.font", self.fonts["label"])
         root.option_add("*Frame.background", colors["bg_primary"])
+        root.option_add("*Canvas.background", colors["bg_primary"])
         
         # Set minimum window size
         root.minsize(400, 100)

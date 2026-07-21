@@ -9,6 +9,13 @@ from .abstract import ValueRow
 import tk_extension
 from .abstract import inc_optional
 
+try:
+    import tkinterdnd2
+    _HAS_DND = True
+except ImportError:
+    tkinterdnd2 = None  # type: ignore[assignment]
+    _HAS_DND = False
+
 
 @abstractmethod
 class Entry(ValueRow, ABC):
@@ -38,6 +45,32 @@ class Entry(ValueRow, ABC):
         """Get validation function for this entry. Override in subclasses."""
         return None
 
+    def _enable_dnd(self, root: tk.Tk):
+        if not _HAS_DND or self.entry_obj is None:
+            return
+        try:
+            tkinterdnd2.TkinterDnD._require(root)  # type: ignore[union-attr]
+            getattr(self.entry_obj, 'drop_target_register')('DND_Files', 'DND_Text')
+            getattr(self.entry_obj, 'dnd_bind')('<<Drop>>', self._on_drop)
+        except Exception:
+            pass
+
+    def _parse_drop_data(self, raw: str) -> str:
+        """Extract the first item from tkdnd event data, stripping braces."""
+        raw = raw.strip()
+        if raw.startswith('{'):
+            end = raw.find('}')
+            return raw[1:end] if end != -1 else raw[1:]
+        return raw.split()[0] if raw else raw
+
+    def _on_drop(self, event):
+        data = self._parse_drop_data(event.data)
+        validator = self._get_validator()
+        if validator is None or validator(data):
+            self.entry_obj.delete(0, tk.END)
+            self.entry_obj.insert(0, data)
+        return event.action
+
     def _on_entry_changed(self, *_):
         if not getattr(self, '_updating', False) and hasattr(self, 'combo_obj'):
             values = list(self.combo_obj.cget("values"))
@@ -66,6 +99,13 @@ class Entry(ValueRow, ABC):
                 self.value = self.default
             else:
                 self.value = self.entry_obj.get()
+
+    # def reset(self):
+    #     """Reset the entry to its default state."""
+    #     self.value = self.default if self.has_default else ""
+    #     self.push_value()
+    #     if hasattr(self, 'combo_obj'):
+    #         self.combo_obj.set("Default" if self.has_default else "Current")
 
     def build(self, root: tk.Tk, label_width: Optional[int] = None, additional_widgets: List[Callable[[tk.Frame], tk.Widget]] = [], **kwargs) -> tk.Frame:
         row_frame = tk.Frame(root)

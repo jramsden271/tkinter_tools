@@ -160,11 +160,13 @@ class TKinterInput:
 
         update_queue_btn()
 
-        for method in self.method_collection.methods:
+        #for method in [methods_[i] for i in range(len(methods_)-1, -1, -1)]:
+        for i in range(len(self.method_collection.methods)):
+            method = self.method_collection.methods[i]
 
             btn = tk.Button(
                 button_frame,
-                text=f"{method.formatted_title}",
+                text=f"{method.formatted_title} (F{i + 1})",
                 command=lambda a=self.method_collection.create_submit_action(method), n=method.formatted_title: task_queue.submit(a, n),
             )
             btn.pack(side="right", padx=(5, 0))
@@ -180,6 +182,12 @@ class TKinterInput:
                 ),
             )
             btn.bind("<Button-3>", lambda e, m=menu: m.tk_popup(e.x_root, e.y_root))
+
+        for i, method in enumerate(self.method_collection.methods):
+            self.root.bind(
+                f"<F{i + 1}>",
+                lambda _, a=self.method_collection.create_submit_action(method), n=method.formatted_title: task_queue.submit(a, n),
+            )
 
         if keep_on_top:
             self.root.attributes("-topmost", True)

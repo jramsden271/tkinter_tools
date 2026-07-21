@@ -78,3 +78,8 @@ class ValueRow(Row, ABC, Generic[T]):
     def cast_value(self) -> T:
         """Get the value cast to the appropriate type."""
         pass
+
+    # @abstractmethod
+    # def reset(self):
+    #     """Reset the value to its default state."""
+    #     pass
