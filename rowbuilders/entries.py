@@ -144,6 +144,8 @@ class Entry(ValueRow, ABC):
                 validatecommand=(root.register(validator), '%P')
             )
 
+        self._enable_dnd(root)
+
         return row_frame
 
 
