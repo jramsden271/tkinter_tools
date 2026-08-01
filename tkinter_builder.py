@@ -114,6 +114,15 @@ class TKinterInput:
         status_label = tk.Label(status_frame, text="", anchor="w")
         status_label.pack(side="left", fill="x", expand=True)
 
+        async_mode_var = tk.BooleanVar(value=False)
+        async_mode_check = tk.Checkbutton(
+            status_frame,
+            text="Async mode",
+            variable=async_mode_var,
+            bg=self.root.cget("bg"),
+        )
+        async_mode_check.pack(side="right")
+
         def on_task_complete(name: str) -> None:
             conjugated = Conjugator(name)
             def _():
@@ -150,6 +159,13 @@ class TKinterInput:
                     async_tracker.finish(task_id, succeeded)
 
             threading.Thread(target=_worker, daemon=True).start()
+
+        def run_method_button(method) -> None:
+            """Left-click entry point: honor the Async mode checkbox."""
+            if async_mode_var.get():
+                run_async(method)
+            else:
+                submit_method(method)
 
         _tasks_window: list[TasksWindow] = []
 
@@ -189,7 +205,7 @@ class TKinterInput:
             btn = tk.Button(
                 buttons_frame,
                 text=f"{method.formatted_title} (F{i + 1})",
-                command=lambda m=method: submit_method(m),
+                command=lambda m=method: run_method_button(m),
             )
             btn.pack(side="left", padx=(5, 0))
 
@@ -219,7 +235,7 @@ class TKinterInput:
         for i, method in enumerate(self.method_collection.methods):
             self.root.bind(
                 f"<F{i + 1}>",
-                lambda _, m=method: submit_method(m),
+                lambda _, m=method: run_method_button(m),
             )
 
         if keep_on_top:
