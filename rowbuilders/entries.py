@@ -219,6 +219,11 @@ class PathEntry(Entry):
     @property
     def cast_value(self) -> Optional[Path]:
         try:
-            return Path(self.value) if self.value else None
+            if not self.value:
+                return None
+            value = self.value.strip()
+            if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+                value = value[1:-1]
+            return Path(value) if value else None
         except:
             return None
