@@ -45,7 +45,9 @@ class CheckBox(ValueRow):
         self.label_obj.pack(side=tk.LEFT, **self._default_padding(**self.kwargs))
 
         self._checkbox_var = tk.BooleanVar(value=self.value)
-        self.checkbox_obj = tk.Checkbutton(row_frame, variable=self._checkbox_var)
+        # fg is pinned to black (not the cascaded theme foreground) so the check
+        # glyph stays dark against the white selectcolor box in both themes.
+        self.checkbox_obj = tk.Checkbutton(row_frame, variable=self._checkbox_var, fg="black", activeforeground="black")
         self.checkbox_obj.pack(side=tk.LEFT, **self._default_padding(**self.kwargs))
         self.push_value()
         return row_frame

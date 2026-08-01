@@ -103,6 +103,9 @@ class CustomStyle(Style):
         root.option_add("*Checkbutton.background", colors["bg_primary"])
         root.option_add("*Checkbutton.foreground", colors["text_primary"])
         root.option_add("*Checkbutton.font", self.fonts["label"])
+        # Keep the checkmark box itself light in both themes, since the check glyph
+        # is drawn dark regardless of theme - a dark selectcolor would hide it.
+        root.option_add("*Checkbutton.selectColor", "#ffffff")
         root.option_add("*Frame.background", colors["bg_primary"])
         root.option_add("*Canvas.background", colors["bg_primary"])
         

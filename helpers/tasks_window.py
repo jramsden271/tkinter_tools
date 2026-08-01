@@ -1,7 +1,7 @@
-import time
 import tkinter as tk
 from styles import apply_style, get_button_style, SPACING
 from helpers.task_queue import TaskQueue, AsyncTaskTracker
+from helpers.task_item_widget import TaskItemWidget
 
 
 class TasksWindow:
@@ -18,7 +18,7 @@ class TasksWindow:
 
         self.window = tk.Toplevel(parent)
         self.window.title("Tasks")
-        self.window.geometry("420x480")
+        self.window.geometry("420x640")
         self.window.resizable(True, True)
         apply_style(self.window, style=style)
 
@@ -29,7 +29,7 @@ class TasksWindow:
 
         header = tk.Label(
             header_frame,
-            text="Queued / Running",
+            text="Queued",
             font=("Segoe UI", 14, "bold"),
             anchor="w",
         )
@@ -56,92 +56,68 @@ class TasksWindow:
         self._running_frame = tk.Frame(self.window, bg=bg)
         self._running_frame.pack(fill="both", expand=True, padx=SPACING["padding"], pady=(0, SPACING["padding"]))
 
+        completed_header_frame = tk.Frame(self.window, bg=bg)
+        completed_header_frame.pack(fill="x", padx=SPACING["padding"], pady=(0, 4))
+
+        completed_header = tk.Label(
+            completed_header_frame,
+            text="Completed",
+            font=("Segoe UI", 14, "bold"),
+            anchor="w",
+        )
+        completed_header.pack(side="left", fill="x", expand=True)
+
+        tk.Button(
+            completed_header_frame,
+            text="Clear",
+            command=self._clear_completed,
+            **get_button_style(self._style),
+        ).pack(side="right")
+
+        self._completed_frame = tk.Frame(self.window, bg=bg)
+        self._completed_frame.pack(fill="both", expand=True, padx=SPACING["padding"], pady=(0, SPACING["padding"]))
+
         self._refresh()
+
+    def _clear_completed(self) -> None:
+        self._task_queue.clear_completed()
+        self._async_tracker.clear_completed()
+
+    def _fill_section(self, frame: tk.Frame, entries: list, empty_text: str) -> None:
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+        if not entries:
+            tk.Label(
+                frame,
+                text=empty_text,
+                anchor="center",
+                fg="#757575",
+            ).pack(expand=True)
+            return
+
+        for record, on_cancel in entries:
+            item = TaskItemWidget(frame, record, style=self._style, on_cancel=on_cancel)
+            item.pack(fill="x", pady=(0, 4))
 
     def _refresh(self) -> None:
         if not self.window.winfo_exists():
             return
 
-        bg = self.window.cget("bg")
-        now = time.monotonic()
-
-        for widget in self._list_frame.winfo_children():
-            widget.destroy()
-
         current = self._task_queue.get_current()
         pending = self._task_queue.get_pending()
+        queued_entries = ([(current, None)] if current else []) + [
+            (record, self._task_queue.cancel) for record in pending
+        ]
+        self._fill_section(self._list_frame, queued_entries, "Queue is empty")
 
-        if not current and not pending:
-            tk.Label(
-                self._list_frame,
-                text="Queue is empty",
-                anchor="center",
-                fg="#757575",
-            ).pack(expand=True)
-        else:
-            if current:
-                _current_id, current_name, start_time = current
-                elapsed = int(now - start_time)
-                row = tk.Frame(self._list_frame, bg=bg)
-                row.pack(fill="x", pady=2)
+        running = sorted(self._async_tracker.get_running(), key=lambda r: r.started_at or 0)
+        self._fill_section(self._running_frame, [(r, None) for r in running], "No tasks running asynchronously")
 
-                tk.Label(
-                    row,
-                    text=current_name,
-                    anchor="w",
-                ).pack(side="left", fill="x", expand=True, padx=(0, 8))
-
-                tk.Label(
-                    row,
-                    text=f"{elapsed}s",
-                    anchor="e",
-                ).pack(side="right")
-
-            for task_id, name in pending:
-                row = tk.Frame(self._list_frame, bg=bg)
-                row.pack(fill="x", pady=2)
-
-                tk.Label(
-                    row,
-                    text=name,
-                    anchor="w",
-                ).pack(side="left", fill="x", expand=True, padx=(0, 8))
-
-                tk.Button(
-                    row,
-                    text="Cancel",
-                    command=lambda tid=task_id: self._task_queue.cancel(tid),
-                    **get_button_style(self._style),
-                ).pack(side="right")
-
-        for widget in self._running_frame.winfo_children():
-            widget.destroy()
-
-        running = self._async_tracker.get_running()
-
-        if not running:
-            tk.Label(
-                self._running_frame,
-                text="No tasks running asynchronously",
-                anchor="center",
-                fg="#757575",
-            ).pack(expand=True)
-        else:
-            for _task_id, name, start_time in sorted(running, key=lambda t: t[2]):
-                elapsed = int(now - start_time)
-                row = tk.Frame(self._running_frame, bg=bg)
-                row.pack(fill="x", pady=2)
-
-                tk.Label(
-                    row,
-                    text=name,
-                    anchor="w",
-                ).pack(side="left", fill="x", expand=True, padx=(0, 8))
-
-                tk.Label(
-                    row,
-                    text=f"{elapsed}s",
-                    anchor="e",
-                ).pack(side="right")
+        completed = sorted(
+            [*self._task_queue.get_completed(), *self._async_tracker.get_completed()],
+            key=lambda r: r.finished_at or 0,
+        )
+        self._fill_section(self._completed_frame, [(r, None) for r in completed], "No completed tasks")
 
         self.window.after(200, self._refresh)

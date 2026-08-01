@@ -56,7 +56,14 @@ class MethodCollection:
 
     def collect_final_args(self, method: MethodInfo) -> Dict[str, Any]:
         """Collect values from shared parameter states and filter them for the target method."""
+        final_args, _overridden = self._collect_final_args_with_overrides(method)
+        return final_args
+
+    def _collect_final_args_with_overrides(self, method: MethodInfo) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """Like collect_final_args, but also returns the subset of args the user overrode
+        away from their default (used to summarize a queued call for display)."""
         final_args: Dict[str, Any] = {}
+        overridden_args: Dict[str, Any] = {}
         accepted_names = {
             parameter.name
             for parameter in method.parameters
@@ -67,16 +74,34 @@ class MethodCollection:
             if parameter_state.rowbuilder:
                 parameter_state.rowbuilder.pull_value()
                 if parameter_state.name in accepted_names or method.accepts_kwargs:
-                    final_args[parameter_state.name] = parameter_state.rowbuilder.cast_value
+                    value = parameter_state.rowbuilder.cast_value
+                    final_args[parameter_state.name] = value
+                    if parameter_state.rowbuilder.is_overridden:
+                        overridden_args[parameter_state.name] = value
 
-        return final_args
+        return final_args, overridden_args
+
+    @staticmethod
+    def format_params_summary(overridden_args: Dict[str, Any]) -> str:
+        """Format the user-overridden args as a compact 'name=value, ...' string."""
+        return ", ".join(f"{name}={value!r}" for name, value in overridden_args.items())
 
     def create_submit_action(self, method: MethodInfo) -> Callable[[], Any]:
         """Capture the current form values now and return a callable that invokes the
         method with that snapshot, so later widget edits don't affect a queued call."""
-        final_args = self.collect_final_args(method)
+        final_args, _overridden = self._collect_final_args_with_overrides(method)
 
         def submit_action():
             return method.method(**final_args)
 
         return submit_action
+
+    def create_submit_action_with_summary(self, method: MethodInfo) -> tuple[Callable[[], Any], str]:
+        """Like create_submit_action, but also returns a compact summary of the
+        overridden parameters for display in the Tasks window."""
+        final_args, overridden_args = self._collect_final_args_with_overrides(method)
+
+        def submit_action():
+            return method.method(**final_args)
+
+        return submit_action, self.format_params_summary(overridden_args)

@@ -114,6 +114,22 @@ class TKinterInput:
         status_label = tk.Label(status_frame, text="", anchor="w")
         status_label.pack(side="left", fill="x", expand=True)
 
+        async_mode_var = tk.BooleanVar(value=False)
+        async_mode_row = tk.Frame(status_frame, bg=self.root.cget("bg"))
+        async_mode_row.pack(side="right")
+        # The checkbox's own text is left empty (label is a separate widget) and its
+        # fg is pinned to black so the check glyph stays dark in both themes - the
+        # cascaded theme foreground (light gray in dark mode) would otherwise hide it.
+        async_mode_check = tk.Checkbutton(
+            async_mode_row,
+            variable=async_mode_var,
+            bg=self.root.cget("bg"),
+            fg="black",
+            activeforeground="black",
+        )
+        async_mode_check.pack(side="left")
+        tk.Label(async_mode_row, text="Async mode").pack(side="left")
+
         def on_task_complete(name: str) -> None:
             conjugated = Conjugator(name)
             def _():
@@ -129,20 +145,34 @@ class TKinterInput:
         task_queue = TaskQueue(lambda name: None, on_task_complete, on_task_error)
         async_tracker = AsyncTaskTracker()
 
+        def submit_method(method) -> None:
+            """Snapshot the current form values and enqueue a run of this method."""
+            action, params = self.method_collection.create_submit_action_with_summary(method)
+            task_queue.submit(action, method.formatted_title, params)
+
         def run_async(method) -> None:
             """Run a method in its own thread immediately, bypassing the queue."""
-            action = self.method_collection.create_submit_action(method)
-            task_id = async_tracker.start(method.formatted_title)
+            action, params = self.method_collection.create_submit_action_with_summary(method)
+            task_id = async_tracker.start(method.formatted_title, params)
 
             def _worker():
+                succeeded = True
                 try:
                     action()
                 except Exception as e:
+                    succeeded = False
                     self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
                 finally:
-                    async_tracker.finish(task_id)
+                    async_tracker.finish(task_id, succeeded)
 
             threading.Thread(target=_worker, daemon=True).start()
+
+        def run_method_button(method) -> None:
+            """Left-click entry point: honor the Async mode checkbox."""
+            if async_mode_var.get():
+                run_async(method)
+            else:
+                submit_method(method)
 
         _tasks_window: list[TasksWindow] = []
 
@@ -160,13 +190,10 @@ class TKinterInput:
                 spinner.stop()
             elif total_running == 1:
                 spinner.start()
-                if current:
-                    _current_id, name, start_time = current
-                else:
-                    _current_id, name, start_time = running_async[0]
-                conjugated = Conjugator(name)
+                record = current if current else running_async[0]
+                conjugated = Conjugator(record.name)
                 label = conjugated.to_present_continuous().capitalize()
-                elapsed = int(time.monotonic() - start_time)
+                elapsed = int(time.time() - record.started_at) if record.started_at else 0
                 status_label.config(text=f"Running: {label}... ({elapsed}s)")
             else:
                 spinner.start()
@@ -185,14 +212,14 @@ class TKinterInput:
             btn = tk.Button(
                 buttons_frame,
                 text=f"{method.formatted_title} (F{i + 1})",
-                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                command=lambda m=method: run_method_button(m),
             )
             btn.pack(side="left", padx=(5, 0))
 
             menu = tk.Menu(buttons_frame, tearoff=0)
             menu.add_command(
                 label="Run",
-                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                command=lambda m=method: submit_method(m),
             )
             menu.add_command(
                 label="Run Asynchronously",
@@ -215,7 +242,7 @@ class TKinterInput:
         for i, method in enumerate(self.method_collection.methods):
             self.root.bind(
                 f"<F{i + 1}>",
-                lambda _, m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                lambda _, m=method: run_method_button(m),
             )
 
         if keep_on_top:
