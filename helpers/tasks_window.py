@@ -1,6 +1,6 @@
 import time
 import tkinter as tk
-from styles import apply_style, get_button_style, SPACING
+from styles import apply_style, get_button_style, COLORS, SPACING
 from helpers.task_queue import TaskQueue, AsyncTaskTracker
 
 
@@ -18,7 +18,7 @@ class TasksWindow:
 
         self.window = tk.Toplevel(parent)
         self.window.title("Tasks")
-        self.window.geometry("420x480")
+        self.window.geometry("420x640")
         self.window.resizable(True, True)
         apply_style(self.window, style=style)
 
@@ -29,7 +29,7 @@ class TasksWindow:
 
         header = tk.Label(
             header_frame,
-            text="Queued / Running",
+            text="Queued",
             font=("Segoe UI", 14, "bold"),
             anchor="w",
         )
@@ -56,7 +56,32 @@ class TasksWindow:
         self._running_frame = tk.Frame(self.window, bg=bg)
         self._running_frame.pack(fill="both", expand=True, padx=SPACING["padding"], pady=(0, SPACING["padding"]))
 
+        completed_header_frame = tk.Frame(self.window, bg=bg)
+        completed_header_frame.pack(fill="x", padx=SPACING["padding"], pady=(0, 4))
+
+        completed_header = tk.Label(
+            completed_header_frame,
+            text="Completed",
+            font=("Segoe UI", 14, "bold"),
+            anchor="w",
+        )
+        completed_header.pack(side="left", fill="x", expand=True)
+
+        tk.Button(
+            completed_header_frame,
+            text="Clear",
+            command=self._clear_completed,
+            **get_button_style(self._style),
+        ).pack(side="right")
+
+        self._completed_frame = tk.Frame(self.window, bg=bg)
+        self._completed_frame.pack(fill="both", expand=True, padx=SPACING["padding"], pady=(0, SPACING["padding"]))
+
         self._refresh()
+
+    def _clear_completed(self) -> None:
+        self._task_queue.clear_completed()
+        self._async_tracker.clear_completed()
 
     def _refresh(self) -> None:
         if not self.window.winfo_exists():
@@ -141,6 +166,39 @@ class TasksWindow:
                 tk.Label(
                     row,
                     text=f"{elapsed}s",
+                    anchor="e",
+                ).pack(side="right")
+
+        for widget in self._completed_frame.winfo_children():
+            widget.destroy()
+
+        completed = sorted(
+            [*self._task_queue.get_completed(), *self._async_tracker.get_completed()],
+            key=lambda t: t[3],
+        )
+
+        if not completed:
+            tk.Label(
+                self._completed_frame,
+                text="No completed tasks",
+                anchor="center",
+                fg="#757575",
+            ).pack(expand=True)
+        else:
+            for _task_id, name, succeeded, _finish_time in completed:
+                row = tk.Frame(self._completed_frame, bg=bg)
+                row.pack(fill="x", pady=2)
+
+                tk.Label(
+                    row,
+                    text=name,
+                    anchor="w",
+                ).pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+                tk.Label(
+                    row,
+                    text="Done" if succeeded else "Error",
+                    fg=COLORS["success"] if succeeded else COLORS["error"],
                     anchor="e",
                 ).pack(side="right")
 

@@ -135,12 +135,14 @@ class TKinterInput:
             task_id = async_tracker.start(method.formatted_title)
 
             def _worker():
+                succeeded = True
                 try:
                     action()
                 except Exception as e:
+                    succeeded = False
                     self.root.after(0, lambda e=e: messagebox.showerror("Error", str(e)))
                 finally:
-                    async_tracker.finish(task_id)
+                    async_tracker.finish(task_id, succeeded)
 
             threading.Thread(target=_worker, daemon=True).start()
 

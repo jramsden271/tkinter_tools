@@ -16,6 +16,7 @@ class TaskQueue:
         self._pending: list[tuple[str, str]] = []
         self._current: Optional[tuple[str, str, float]] = None
         self._cancelled: set[str] = set()
+        self._completed: list[tuple[str, str, bool, float]] = []
         self._lock = threading.Lock()
         self.on_task_start = on_task_start
         self.on_task_complete = on_task_complete
@@ -48,6 +49,15 @@ class TaskQueue:
         with self._lock:
             return self._current
 
+    def get_completed(self) -> list[tuple[str, str, bool, float]]:
+        """Return (task_id, name, succeeded, finish_time) for each finished task, oldest first."""
+        with self._lock:
+            return list(self._completed)
+
+    def clear_completed(self) -> None:
+        with self._lock:
+            self._completed = []
+
     def _worker(self) -> None:
         while True:
             task_id, action, name = self._queue.get()
@@ -62,11 +72,14 @@ class TaskQueue:
             try:
                 action()
                 self.on_task_complete(name)
+                succeeded = True
             except Exception as e:
                 self.on_task_error(name, e)
+                succeeded = False
             finally:
                 with self._lock:
                     self._current = None
+                    self._completed.append((task_id, name, succeeded, time.monotonic()))
                 self._queue.task_done()
 
 
@@ -75,6 +88,7 @@ class AsyncTaskTracker:
 
     def __init__(self):
         self._running: dict[str, tuple[str, float]] = {}
+        self._completed: list[tuple[str, str, bool, float]] = []
         self._lock = threading.Lock()
 
     def start(self, name: str) -> str:
@@ -83,11 +97,23 @@ class AsyncTaskTracker:
             self._running[task_id] = (name, time.monotonic())
         return task_id
 
-    def finish(self, task_id: str) -> None:
+    def finish(self, task_id: str, succeeded: bool = True) -> None:
         with self._lock:
-            self._running.pop(task_id, None)
+            entry = self._running.pop(task_id, None)
+            if entry is not None:
+                name, _start = entry
+                self._completed.append((task_id, name, succeeded, time.monotonic()))
 
     def get_running(self) -> list[tuple[str, str, float]]:
         """Return (task_id, name, start_time) for each task currently running."""
         with self._lock:
             return [(tid, name, start) for tid, (name, start) in self._running.items()]
+
+    def get_completed(self) -> list[tuple[str, str, bool, float]]:
+        """Return (task_id, name, succeeded, finish_time) for each finished task, oldest first."""
+        with self._lock:
+            return list(self._completed)
+
+    def clear_completed(self) -> None:
+        with self._lock:
+            self._completed = []
