@@ -95,10 +95,17 @@ class Entry(ValueRow, ABC):
         if self.entry_obj:
             if self.combo_obj.get() == "None":
                 self.value = None
+                self._is_overridden = True
             elif self.combo_obj.get().startswith("Default:"):
                 self.value = self.default
+                self._is_overridden = False
             else:
                 self.value = self.entry_obj.get()
+                self._is_overridden = True
+
+    @property
+    def is_overridden(self) -> bool:
+        return getattr(self, "_is_overridden", True)
 
     # def reset(self):
     #     """Reset the entry to its default state."""

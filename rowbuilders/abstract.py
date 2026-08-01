@@ -79,6 +79,13 @@ class ValueRow(Row, ABC, Generic[T]):
         """Get the value cast to the appropriate type."""
         pass
 
+    @property
+    def is_overridden(self) -> bool:
+        """Whether the user set this away from its default (or there is no default).
+        Rowbuilders with no Default/Current distinction should leave this as True,
+        since there's no way to tell an override from an unset value."""
+        return True
+
     # @abstractmethod
     # def reset(self):
     #     """Reset the value to its default state."""

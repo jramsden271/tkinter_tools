@@ -129,10 +129,15 @@ class TKinterInput:
         task_queue = TaskQueue(lambda name: None, on_task_complete, on_task_error)
         async_tracker = AsyncTaskTracker()
 
+        def submit_method(method) -> None:
+            """Snapshot the current form values and enqueue a run of this method."""
+            action, params = self.method_collection.create_submit_action_with_summary(method)
+            task_queue.submit(action, method.formatted_title, params)
+
         def run_async(method) -> None:
             """Run a method in its own thread immediately, bypassing the queue."""
-            action = self.method_collection.create_submit_action(method)
-            task_id = async_tracker.start(method.formatted_title)
+            action, params = self.method_collection.create_submit_action_with_summary(method)
+            task_id = async_tracker.start(method.formatted_title, params)
 
             def _worker():
                 succeeded = True
@@ -162,13 +167,10 @@ class TKinterInput:
                 spinner.stop()
             elif total_running == 1:
                 spinner.start()
-                if current:
-                    _current_id, name, start_time = current
-                else:
-                    _current_id, name, start_time = running_async[0]
-                conjugated = Conjugator(name)
+                record = current if current else running_async[0]
+                conjugated = Conjugator(record.name)
                 label = conjugated.to_present_continuous().capitalize()
-                elapsed = int(time.monotonic() - start_time)
+                elapsed = int(time.time() - record.started_at) if record.started_at else 0
                 status_label.config(text=f"Running: {label}... ({elapsed}s)")
             else:
                 spinner.start()
@@ -187,14 +189,14 @@ class TKinterInput:
             btn = tk.Button(
                 buttons_frame,
                 text=f"{method.formatted_title} (F{i + 1})",
-                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                command=lambda m=method: submit_method(m),
             )
             btn.pack(side="left", padx=(5, 0))
 
             menu = tk.Menu(buttons_frame, tearoff=0)
             menu.add_command(
                 label="Run",
-                command=lambda m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                command=lambda m=method: submit_method(m),
             )
             menu.add_command(
                 label="Run Asynchronously",
@@ -217,7 +219,7 @@ class TKinterInput:
         for i, method in enumerate(self.method_collection.methods):
             self.root.bind(
                 f"<F{i + 1}>",
-                lambda _, m=method, n=method.formatted_title: task_queue.submit(self.method_collection.create_submit_action(m), n),
+                lambda _, m=method: submit_method(m),
             )
 
         if keep_on_top:
