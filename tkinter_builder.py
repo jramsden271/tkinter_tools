@@ -115,13 +115,20 @@ class TKinterInput:
         status_label.pack(side="left", fill="x", expand=True)
 
         async_mode_var = tk.BooleanVar(value=False)
+        async_mode_row = tk.Frame(status_frame, bg=self.root.cget("bg"))
+        async_mode_row.pack(side="right")
+        # The checkbox's own text is left empty (label is a separate widget) and its
+        # fg is pinned to black so the check glyph stays dark in both themes - the
+        # cascaded theme foreground (light gray in dark mode) would otherwise hide it.
         async_mode_check = tk.Checkbutton(
-            status_frame,
-            text="Async mode",
+            async_mode_row,
             variable=async_mode_var,
             bg=self.root.cget("bg"),
+            fg="black",
+            activeforeground="black",
         )
-        async_mode_check.pack(side="right")
+        async_mode_check.pack(side="left")
+        tk.Label(async_mode_row, text="Async mode").pack(side="left")
 
         def on_task_complete(name: str) -> None:
             conjugated = Conjugator(name)
